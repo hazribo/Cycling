@@ -1,24 +1,28 @@
 package cycling;
 
 import java.io.*;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 
-/*
+/**
+ * CyclingPortalImpl is a fully-functioning implementor
+ * of the MiniCyclingPortal interface.
+ *
  * @author Harry Gardner
- * @version 1.0
  */
 
 public class CyclingPortalImpl implements MiniCyclingPortal {
 
-    private HashMap<Integer, HashMap<String, Object>> races;
-    private HashMap<Integer, HashMap<String, Object>> stages;
-    private HashMap<Integer, HashMap<String, Object>> checkpoints;
-    private HashMap<Integer, HashMap<String, Object>> teams;
-    private HashMap<Integer, HashMap<String, Object>> riders;
-    private HashMap<Integer, HashMap<Integer, LocalTime[]>> allResults;
+    static HashMap<Integer, HashMap<String, Object>> races;
+    static HashMap<Integer, HashMap<String, Object>> stages;
+    static HashMap<Integer, HashMap<String, Object>> checkpoints;
+    static HashMap<Integer, HashMap<String, Object>> teams;
+    static HashMap<Integer, HashMap<String, Object>> riders;
+    static HashMap<Integer, HashMap<Integer, LocalTime[]>> allResults;
+    static HashMap<Integer, int[]> mountainPoints;
 
     public CyclingPortalImpl() {
         races = new HashMap<>();
@@ -27,6 +31,7 @@ public class CyclingPortalImpl implements MiniCyclingPortal {
         teams = new HashMap<>();
         riders = new HashMap<>();
         allResults = new HashMap<>();
+        mountainPoints = new HashMap<>();
     }
 
     @Override
@@ -60,7 +65,7 @@ public class CyclingPortalImpl implements MiniCyclingPortal {
         //Create the raceId:
         int raceId = IDHandler.newId(races);
 
-        assert raceId >= 0 : "Race ID must be non-negative";
+        assert raceId >= 0 : "Race ID must not be negative";
         races.put(raceId, raceDetails);
 
         return raceId;
@@ -79,9 +84,9 @@ public class CyclingPortalImpl implements MiniCyclingPortal {
         Object totalLength = raceDetails.get("totalLength");
 
         String stats = ("Name: " + name
-                 + "\nDesc: " + description
-                 + "\nNumber of stages: " + numStages
-                 + "\nTotal stage length: " + totalLength);
+                + "\nDesc: " + description
+                + "\nNumber of stages: " + numStages
+                + "\nTotal stage length: " + totalLength);
 
         System.out.println(stats);
         return stats;
@@ -95,6 +100,14 @@ public class CyclingPortalImpl implements MiniCyclingPortal {
 
         //Retrieve raceDetails:
         HashMap<String, Object> raceDetails = races.get(raceId);
+
+        //Get all stageIds:
+        ArrayList<Integer> stageIds = (ArrayList<Integer>) raceDetails.get("stageIds");
+        // Iterate through all stageIds, running clearStage:
+        for (int stageId : stageIds) {
+            StageHandler.clearStage(stageId);
+        }
+
         //Remove from all arrays/hashmaps:
         races.remove(raceId, raceDetails);
     }
@@ -140,12 +153,13 @@ public class CyclingPortalImpl implements MiniCyclingPortal {
 
         // Create stage ID:
         int stageId = IDHandler.newId(stages);
+        assert stageId >= 0 : "Stage ID must not be negative";
 
         // Add stageId to list of all stage IDs, then update raceDetails:
         ArrayList<Integer> stageIds = (ArrayList<Integer>) raceDetails.get("stageIds");
         stageIds.add(stageId);
         raceDetails.put("stageIds", stageIds);
-        
+
         // Retrieve stageDetails, initialise if non-existent:
         HashMap<String, Object> stageDetails = stages.get(stageId);
         if (stageDetails == null) {
@@ -164,7 +178,6 @@ public class CyclingPortalImpl implements MiniCyclingPortal {
         stageDetails.put("stageType", type);
         stageDetails.put("stageLength", length);
         stageDetails.put("checkpointIds", new ArrayList<Integer>());
-        stageDetails.put("results", new HashMap<>());
         stageDetails.put("waiting", false);
         // Append this to HashMap of all existing stages:
         stages.put(stageId, stageDetails);
@@ -281,6 +294,7 @@ public class CyclingPortalImpl implements MiniCyclingPortal {
 
         // Create checkpoint ID:
         int checkpointId = IDHandler.newId(checkpoints);
+        assert checkpointId >= 0 : "Checkpoint ID must not be negative";
 
         // Add ID to list of IDs:
         ArrayList<Integer> checkpointIds = IDHandler.addIdToArray(checkpoints, checkpointId, stageDetails, "checkpointIds");
@@ -328,6 +342,7 @@ public class CyclingPortalImpl implements MiniCyclingPortal {
 
         // Create checkpoint ID:
         int checkpointId = IDHandler.newId(checkpoints);
+        assert checkpointId >= 0 : "Checkpoint ID must not be negative";
 
         // Add ID to list of IDs:
         ArrayList<Integer> checkpointIds = IDHandler.addIdToArray(checkpoints, checkpointId, stageDetails, "checkpointIds");
@@ -369,9 +384,8 @@ public class CyclingPortalImpl implements MiniCyclingPortal {
         }
 
         // Iterate through all applicable races:
-        for (Integer i : stageIdsWithCheckpoint) {
+        for (Integer stageId : stageIdsWithCheckpoint) {
             // Retrieve stageId, stageDetails:
-            int stageId = i;
             HashMap<String, Object> stageDetails = stages.get(stageId);
 
             // Ensure stage isn't waiting for results:
@@ -388,7 +402,7 @@ public class CyclingPortalImpl implements MiniCyclingPortal {
 
         // Delete the checkpoint:
         checkpoints.remove(checkpointId);
-        System.out.println("\nCheckpoint removed: " + checkpointId + "\n");
+        System.out.println("\nCheckpoint removed: " + checkpointId);
     }
 
     @Override
@@ -427,7 +441,7 @@ public class CyclingPortalImpl implements MiniCyclingPortal {
 
         // Sort the locations ArrayList:
         Collections.sort(locations);
-        
+
         int[] sortedIds = new int[locations.size()];
         for (int i = 0; i < locations.size(); i++) {
             double location = locations.get(i);
@@ -460,6 +474,8 @@ public class CyclingPortalImpl implements MiniCyclingPortal {
 
         // Create the teamId:
         int teamId = IDHandler.newId(teams);
+        assert teamId >= 0 : "Team ID must not be negative";
+
         // Put teamId with teamDetails into teams:
         teams.put(teamId, teamDetails);
 
@@ -480,7 +496,8 @@ public class CyclingPortalImpl implements MiniCyclingPortal {
     }
 
     @Override
-    public int[] getTeams() { return IDHandler.getIdsFromHashMap(teams);
+    public int[] getTeams() {
+        return IDHandler.getIdsFromHashMap(teams);
     }
 
     @Override
@@ -517,6 +534,15 @@ public class CyclingPortalImpl implements MiniCyclingPortal {
 
         // Create rider ID:
         int riderId = IDHandler.newId(riders);
+        assert riderId >= 0 : "Rider ID must not be negative";
+
+        // Add rider ID to team riders, update HashMap:
+        HashMap<String, Object> teamDetails = teams.get(teamId);
+        ArrayList<Integer> existingRiders = (ArrayList<Integer>) teamDetails.get("riderIds");
+        existingRiders.add(riderId);
+        teamDetails.put("riderIds", existingRiders);
+        teams.put(teamId, teamDetails);
+
         // Put riderId with riderDetails into riders:
         riders.put(riderId, riderDetails);
 
@@ -535,9 +561,8 @@ public class CyclingPortalImpl implements MiniCyclingPortal {
         //Remove from all arrays/hashmaps:
         riders.remove(riderId, riderDetails);
 
-        /*
-        *RACE RESULTS MUST ALSO BE UPDATED. ?????????????
-        */
+        // Update rider results:
+
     }
 
     @Override
@@ -564,15 +589,20 @@ public class CyclingPortalImpl implements MiniCyclingPortal {
 
         ArrayList<Integer> checkpointIds = (ArrayList<Integer>) stageDetails.get("checkpointIds");
         int checkpointNum = checkpointIds.size();
-        if (checkpoints.length != checkpointNum + 2) {
+        if (checkpoints.length != checkpointNum * 2) {
             throw new InvalidCheckpointTimesException("Invalid checkpoint times.");
         }
 
         // If no errors, apply results:
         resultDetails.put(stageId, checkpoints);
 
-        // Also add to list of all results:
-        HashMap<Integer, LocalTime[]> riderResults = new HashMap<>();
+        // Add to list of all results:
+        HashMap<Integer, LocalTime[]> riderResults;
+        if (allResults.containsKey(stageId)) {
+            riderResults = allResults.get(stageId);
+        } else {
+            riderResults = new HashMap<>();
+        }
         riderResults.put(riderId, checkpoints);
         allResults.put(stageId, riderResults);
     }
@@ -646,16 +676,11 @@ public class CyclingPortalImpl implements MiniCyclingPortal {
             throw new IDNotRecognisedException("Stage ID does not exist: " + stageId);
         }
 
-        // Retrieve sorted results for the stage:
-        CyclingPortalImpl cyclingPortal = new CyclingPortalImpl();
-        cyclingPortal.stages = stages;
-        cyclingPortal.races = races;
-        HashMap<int[], LocalTime[]> riderResults = RankRiders.rank(stageId, allResults, stages, cyclingPortal);
+        // Rank all riders by LocalTime[] with their ID:
+        HashMap<int[], LocalTime[]> riderResults = RankRiders.rank(stageId);
 
-        // Use .iterator().next() to retrieve the first (only) value in HashMap:
-        int[] ridersRankInStage = riderResults.keySet().iterator().next();
-
-        return ridersRankInStage;
+        // Use .iterator().next() on the keySet to retrieve the first (only) value in int[]:
+        return riderResults.keySet().iterator().next();
     }
 
     @Override
@@ -664,18 +689,11 @@ public class CyclingPortalImpl implements MiniCyclingPortal {
             throw new IDNotRecognisedException("Stage ID does not exist: " + stageId);
         }
 
-        // Create new cyclingPortal so RankRiders.rank can use CyclingPortalImpl methods:
-        CyclingPortalImpl cyclingPortal = new CyclingPortalImpl();
-        // Copy stages and races across:
-        cyclingPortal.stages = stages;
-        cyclingPortal.riders = riders;
         // Rank all riders by LocalTime[] with their ID:
-        HashMap<int[], LocalTime[]> riderResults = RankRiders.rank(stageId, allResults, stages, cyclingPortal);
+        HashMap<int[], LocalTime[]> riderResults = RankRiders.rank(stageId);
 
-        // Use .iterator().next() to retrieve the first (only) value in HashMap:
-        LocalTime[] rankedAdjustedElapsedTimes = riderResults.values().iterator().next();
-
-        return rankedAdjustedElapsedTimes;
+        // Use .iterator().next() on the values to retrieve the first (only) value in LocalTime[]:
+        return riderResults.values().iterator().next();
     }
 
     @Override
@@ -684,20 +702,75 @@ public class CyclingPortalImpl implements MiniCyclingPortal {
             throw new IDNotRecognisedException("Stage ID does not exist: " + stageId);
         }
 
-        // Use getRidersRankInStage to get list of riders:
+        // Get the ranked list of riders for the stage
         int[] rankedRiders = getRidersRankInStage(stageId);
 
+        // Get stageDetails to get the type of stage:
+        HashMap<String, Object> stageDetails = stages.get(stageId);
+        StageType stageType = (StageType) stageDetails.get("stageType");
 
-        return null;
+        // Pass both of these through to PointsHandler:
+        return PointsHandler.getStagePoints(rankedRiders, stageType);
     }
 
     @Override
     public int[] getRidersMountainPointsInStage(int stageId) throws IDNotRecognisedException {
-        if (!stages.containsKey(stageId)) {
-            throw new IDNotRecognisedException("Stage ID does not exist: " + stageId);
-        }
+        // Initialise necessary maps/arrays:
+        HashMap<String, Object> stageDetails = stages.get(stageId);
+        ArrayList<Integer> checkpointIds = (ArrayList<Integer>) stageDetails.get("checkpointIds");
+        HashMap<Integer, LocalTime[]> results = allResults.get(stageId);
 
-        return null;
+        HashMap<Integer, int[]> mountainPoints = new HashMap<>(); // Store mountain points for each stage
+
+        for (int checkpointId : checkpointIds) {
+            HashMap<String, Object> checkpointDetails = checkpoints.get(checkpointId);
+            String type = (String) checkpointDetails.get("type");
+            if (type.equals("climb")) {
+                int timesToCheck = (checkpointId * 2) - 1;
+                HashMap<Integer, Long> riderTimes = new HashMap<>(); // Create a new map for each checkpoint
+                for (Integer riderId : results.keySet()) {
+                    LocalTime[] times = results.get(riderId);
+                    LocalTime startTime = times[timesToCheck - 1];
+                    LocalTime endTime = times[timesToCheck];
+                    Duration duration = Duration.between(startTime, endTime);
+                    long seconds = duration.getSeconds(); // Get the duration in seconds
+                    riderTimes.put(riderId, seconds);
+                }
+
+                // Convert riderTimes HashMap to a list of entries:
+                List<Map.Entry<Integer, Long>> entries = new ArrayList<>(riderTimes.entrySet());
+
+                // Sort the list based on the value (seconds):
+                entries.sort(Map.Entry.comparingByValue());
+
+                // Extract sorted riderIds:
+                int[] riderIds = new int[riderTimes.size()];
+                int index = 0;
+                for (Map.Entry<Integer, Long> entry : entries) {
+                    Integer riderId = entry.getKey();
+                    riderIds[index++] = riderId;
+                }
+
+                // get checkpointType, send to PointsHandler.getMountainPoints with riderIds:
+                CheckpointType checkpointType = (CheckpointType) checkpointDetails.get("category");
+                int[] newMountainPoints = PointsHandler.getMountainPoints(riderIds, checkpointType);
+
+                // Store points, or add to already stored mountain points if applicable:
+                if (mountainPoints.containsKey(stageId)) {
+                    int[] currentPoints = mountainPoints.get(stageId);
+                    for (int i = 0; i < currentPoints.length; i++) {
+                        currentPoints[i] += newMountainPoints[i];
+                    }
+                    mountainPoints.put(stageId, currentPoints);
+                } else {
+                    mountainPoints.put(stageId, newMountainPoints);
+                }
+            }
+        }
+        System.out.println("Mountain points for stage " + stageId + ": " + Arrays.toString(mountainPoints.get(stageId)));
+
+        // Return overall points for all mountain checkpoints:
+        return mountainPoints.get(stageId);
     }
 
     @Override
